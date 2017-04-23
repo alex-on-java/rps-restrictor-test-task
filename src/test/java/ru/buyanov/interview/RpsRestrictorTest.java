@@ -17,7 +17,7 @@ import static ru.buyanov.interview.CurrentTimeProvider.NANO_SECONDS_IN_SECOND;
 public class RpsRestrictorTest {
     private RpsRestrictor service;
     private CurrentTimeProvider timeProvider;
-    private static final long INITIAL_TIME = 1000;
+    private static final long INITIAL_TIME = NANO_SECONDS_IN_SECOND * 2;
     public static final int MAX_RPS = 10;
 
     @Before
@@ -45,7 +45,7 @@ public class RpsRestrictorTest {
     }
 
     @Test
-    public void testAllowed_callMaxThanWaitMoreThanSecond() throws InterruptedException {
+    public void testAllowed_callMaxThanWaitMoreThanSecond() {
         IntStream.rangeClosed(1, MAX_RPS).forEach(i -> service.allowed(MAX_RPS));
         when(timeProvider.nanoTime()).thenReturn(INITIAL_TIME + NANO_SECONDS_IN_SECOND + 1);
         IntStream.rangeClosed(1, MAX_RPS - 1).forEach(i -> service.allowed(MAX_RPS));
@@ -61,20 +61,29 @@ public class RpsRestrictorTest {
     }
 
     @Test
-    public void testAllowed_callMaxThanWaitLessThanSecond() throws InterruptedException {
+    public void testAllowed_callMaxThanWaitLessThanSecond() {
         IntStream.rangeClosed(1, MAX_RPS).forEach(i -> service.allowed(MAX_RPS));
         when(timeProvider.nanoTime()).thenReturn(INITIAL_TIME + NANO_SECONDS_IN_SECOND - 1);
         assertFalse("Should not allow after less than a second", service.allowed(MAX_RPS));
     }
 
     @Test
-    public void testAllowed_peakAtTheEndOfFirstSecond() throws InterruptedException {
+    public void testAllowed_peakAtTheEndOfFirstSecond() {
         service.allowed(MAX_RPS);
         when(timeProvider.nanoTime()).thenReturn(INITIAL_TIME + NANO_SECONDS_IN_SECOND - 1);
         IntStream.rangeClosed(2, MAX_RPS).forEach(i -> service.allowed(MAX_RPS));
         when(timeProvider.nanoTime()).thenReturn(INITIAL_TIME + NANO_SECONDS_IN_SECOND + 1);
         service.allowed(MAX_RPS);
         assertFalse("Should not allow at the beginning of the 2nd second", service.allowed(MAX_RPS));
+    }
 
+    @Test
+    public void testAllowed_decreaseMax() {
+        service.allowed(MAX_RPS);
+        when(timeProvider.nanoTime()).thenReturn(INITIAL_TIME + NANO_SECONDS_IN_SECOND - 1);
+        IntStream.rangeClosed(2, MAX_RPS).forEach(i -> service.allowed(MAX_RPS));
+        when(timeProvider.nanoTime()).thenReturn(INITIAL_TIME + NANO_SECONDS_IN_SECOND + 1);
+        //service.allowed(MAX_RPS);
+        assertFalse("Should not allow for decreased max rps", service.allowed(MAX_RPS - 1));
     }
 }
